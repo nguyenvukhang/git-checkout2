@@ -14,7 +14,7 @@ VALGRIND_FLAGS += --log-file=$(VALGRIND_LOG)
 # VALGRIND_FLAGS += --xml=yes
 # VALGRIND_FLAGS += --xml-file=valgrind.xml
 
-current: v test
+current: test-env
 
 configure:
 	cmake -DCMAKE_BUILD_TYPE=Release -S . -B $(BUILD_DIR)
@@ -34,7 +34,13 @@ v: configure install
 	valgrind $(VALGRIND_FLAGS) -- git-checkout2 snoop
 
 test: configure install
+	GIT=git cargo test -- --test-threads=1
+
+test-env: configure install
 	cargo test -- --test-threads=1
+
+test1: configure install
+	cargo test t1
 
 fmt:
 	git ls-files '*.c' '*.h' | xargs clang-format -i

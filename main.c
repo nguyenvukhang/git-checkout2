@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
     ERR("` output due to insufficient buffer size.");
   }
 
-  log_trace("GIT CHECKOUT OUTPUT: \"%s\"", buf_c);
+  log_trace("GIT CHECKOUT STDERR: \"%s\"", buf_c);
 
   // If all goes well, just reflect `git checkout's` stderr output back to the
   // terminal's stderr.
