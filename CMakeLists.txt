@@ -5,7 +5,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_C_FLAGS "-O3")
 set(CMAKE_INSTALL_PREFIX /usr/local)
 
+include(FetchContent)
+FetchContent_Declare(
+  rxi_log
+  GIT_REPOSITORY https://github.com/nvkcc/log.c
+  GIT_TAG        a91f7ec797fc1f8c0cb4f29169d8284377fa430f
+  DOWNLOAD_EXTRACT_TIMESTAMP false
+)
+FetchContent_MakeAvailable(rxi_log)
+
 add_executable(git-checkout2 main.c)
+target_link_libraries(git-checkout2 PRIVATE rxi-log)
 # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-usage")
 
 if(NOT WIN32)

@@ -1,6 +1,9 @@
 // STDOUT is reserved for printing the target directory. Always try to exit with
 // the same exit code of the underlying `git checkout` command.
 
+#define DEBUG_MODE
+
+#include <log.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,16 +24,6 @@
 
 #define FATAL_NOT_GIT_REPO "fatal: not a git repository"
 #define IS_ALREADY_USED_AT "is already used by worktree at"
-
-// #define DEBUG
-#ifdef DEBUG
-static int DEBUG_ID = 0;
-#define debug_printf(format, ...)                                              \
-  fprintf(stderr, "[\x1b[32mINFO\x1b[m] (%d) " format "\n", DEBUG_ID++,        \
-          __VA_ARGS__)
-#else
-#define debug_printf(...)
-#endif
 
 #define MAX(A, B) (A < B ? B : A)
 #define MIN(A, B) (A < B ? A : B)
@@ -71,16 +64,20 @@ struct pipedata {
 // Returns 64 if this function's stdout output is meant to be taken as the
 // target directory for the `cd` command.
 int main(int argc, char *argv[]) {
-  debug_printf("\x1b[33mDEBUG MODE\x1b[m", 0);
+  log_set_level(LOG_TRACE);
+  log_set_quiet(1);
+  FILE *log_file = fopen("/home/khang/.local/state/git-checkout2.log", "w");
+  log_add_fp(log_file, LOG_TRACE);
+  log_trace("Begin execution");
 
   setup_git_binary();
-  debug_printf("GIT = %s", GIT);
+  log_trace("GIT = \"%s\"", GIT);
 
   // If the number of arguments (excluding the command) is not 1, then we revert
   // to original `git checkout` behaviour. This ensures that there is simplicity
   // in the code following this.
   if (argc != 2) {
-    debug_printf("Has complex CLI arguments (%d). Bypassing.", argc);
+    log_trace("Has complex CLI arguments (%d). Bypassing.", argc);
     char *argv2[argc + 2]; // +1 for "checkout", +1 for NULL.
     argv2[0] = GIT;
     argv2[1] = "checkout";
@@ -88,7 +85,7 @@ int main(int argc, char *argv[]) {
     argv2[argc + 1] = NULL;
     return execvp(GIT, argv2);
   } else {
-    debug_printf("\x1b[32mIndeed only has one CLI argument.\x1b[m", 0);
+    log_trace("Indeed has only one CLI argument.");
   }
 
   // Since there's only one CLI argument, we shall call it GOAL.
@@ -120,7 +117,7 @@ int main(int argc, char *argv[]) {
 
   // By construction, buf_c_len < GIT_CHECKOUT_BUF_MAX.
   const int buf_c_len = read(pd_c.fd[0], buf_c, GIT_CHECKOUT_BUF_MAX - 1);
-  debug_printf("Bytes read from `git checkout`: %d", buf_c_len);
+  log_trace("Bytes read from `git checkout`: %d", buf_c_len);
   buf_c[buf_c_len] = '\0';
   if (buf_c_len + 3 == GIT_CHECKOUT_BUF_MAX) {
     ERR("Warning: possibly missing bytes from `git ");
@@ -128,20 +125,20 @@ int main(int argc, char *argv[]) {
     ERR("` output due to insufficient buffer size.");
   }
 
-  debug_printf("GIT CHECKOUT OUTPUT: \"%s\"", buf_c);
+  log_trace("GIT CHECKOUT OUTPUT: \"%s\"", buf_c);
 
   // If all goes well, just reflect `git checkout's` stderr output back to the
   // terminal's stderr.
   if (git_checkout_exit_code == 0) {
     write(STDERR_FILENO, buf_c, buf_c_len);
-    debug_printf("Everything went well, nothing to do anymore.", 0);
+    log_trace("Everything went well, nothing to do anymore.");
     return git_checkout_exit_code;
   }
 
   // If it turns out we're not even in a git repository, then exit early.
   if (STARTS_WITH(buf_c, FATAL_NOT_GIT_REPO)) {
     write(STDERR_FILENO, buf_c, buf_c_len);
-    debug_printf("Not in a git repo, exit code %d", git_checkout_exit_code);
+    log_trace("Not in a git repo, exit code %d", git_checkout_exit_code);
     return git_checkout_exit_code;
   }
 
@@ -155,7 +152,7 @@ int main(int argc, char *argv[]) {
   // Aborting
   if (strncmp(buf_c, "error: Your local changes t", 27) == 0) {
     write(STDERR_FILENO, buf_c, buf_c_len);
-    debug_printf("Your local changes (exit code: %d)", git_checkout_exit_code);
+    log_trace("Your local changes (exit code: %d)", git_checkout_exit_code);
     return git_checkout_exit_code;
   }
 
@@ -203,7 +200,7 @@ int main(int argc, char *argv[]) {
 
   // By construction, buf_w_len < GIT_WORKTREE_BUF_MAX.
   const int buf_w_len = read(pd_w.fd[0], buf_w, GIT_WORKTREE_BUF_MAX - 1);
-  debug_printf("Bytes read from `git worktree`: %d", buf_w_len);
+  log_trace("Bytes read from `git worktree`: %d", buf_w_len);
   buf_w[buf_w_len] = '\0';
 
   if (buf_w_len + 3 == GIT_WORKTREE_BUF_MAX) {
@@ -219,7 +216,7 @@ int main(int argc, char *argv[]) {
       continue;
     }
     c_line += 9;
-    debug_printf("(worktree) %s", c_line);
+    log_trace("(worktree) %s", c_line);
     // Check to see if the current line ends with the goal.
     if ((c_left = c_right - goal_len - 1) < c_line) {
       continue;
@@ -231,7 +228,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  debug_printf("Target not found. git-checkout2 is unable to help.", 0);
+  log_trace("Target not found. git-checkout2 is unable to help.");
   write(STDERR_FILENO, buf_c, buf_c_len);
   return git_checkout_exit_code;
 }
