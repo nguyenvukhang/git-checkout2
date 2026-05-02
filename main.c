@@ -60,11 +60,13 @@ struct pipedata {
 // Returns 64 if this function's stdout output is meant to be taken as the
 // target directory for the `cd` command.
 int main(int argc, char *argv[]) {
+#ifdef DEBUG_MODE
   log_set_level(LOG_TRACE);
   log_set_quiet(1);
   FILE *log_file = fopen("/home/khang/.local/state/git-checkout2.log", "w");
   log_add_fp(log_file, LOG_TRACE);
   log_trace("Begin execution");
+#endif
 
   setup_git_binary();
   log_trace("GIT = \"%s\"", GIT);
