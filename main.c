@@ -46,18 +46,14 @@ struct pipedata {
   pid_t pid;
 };
 
-#define PIPE_AND_FORK(pd, COMMAND)                                             \
-  if (pipe(pd.fd) == -1) {                                                     \
-    ERR("pipe");                                                               \
-    ERR(" failed. This is necessary to run `git ");                            \
-    ERR(#COMMAND);                                                             \
-    ERR("`.");                                                                 \
+#define PIPE_OR_RETURN(fd)                                                     \
+  if (pipe(fd) == -1) {                                                        \
+    perror("pipe failed");                                                     \
     return 1;                                                                  \
-  } else if ((pd.pid = fork()) == -1) {                                        \
-    ERR("fork");                                                               \
-    ERR(" failed. This is necessary to run `git ");                            \
-    ERR(#COMMAND);                                                             \
-    ERR("`.");                                                                 \
+  }
+#define FORK_OR_RETURN(pid)                                                    \
+  if ((pid = fork()) == -1) {                                                  \
+    perror("fork failed");                                                     \
     return 1;                                                                  \
   }
 
@@ -93,7 +89,8 @@ int main(int argc, char *argv[]) {
 
   // Pipe data for `git checkout`.
   struct pipedata pd_c;
-  PIPE_AND_FORK(pd_c, checkout);
+  PIPE_OR_RETURN(pd_c.fd);
+  FORK_OR_RETURN(pd_c.pid);
 
   /* Child process: `git checkout` */
   if (pd_c.pid == 0) {
@@ -179,7 +176,8 @@ int main(int argc, char *argv[]) {
 
   // Pipe data for `git worktree`.
   struct pipedata pd_w;
-  PIPE_AND_FORK(pd_w, worktree);
+  PIPE_OR_RETURN(pd_w.fd);
+  FORK_OR_RETURN(pd_c.pid);
 
   /* Child process: `git worktree` */
   if (pd_w.pid == 0) { //
